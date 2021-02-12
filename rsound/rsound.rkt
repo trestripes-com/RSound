@@ -14,6 +14,7 @@
          (prefix-in rc: "rsound-commander.rkt")
          "private/s16vector-add.rkt"
          racket/contract
+         racket/serialize
          racket/match
          racket/list
          (for-syntax racket/base))
@@ -105,8 +106,18 @@
                (* #x10000 (s16vector-ref v1 (floor (* 3 quarter-len)))))])))
 
 ;; a rsound is (rsound s16vector positive-integer positive-integer positive)
-(struct rsound (data start stop sample-rate) 
+(struct rsound (data start stop sample-rate)
   #:transparent
+  #:property prop:serializable
+  (make-serialize-info
+    (lambda (this)
+      (vector (s16vector->list (rsound-data this))
+              (rsound-start this)
+              (rsound-stop this)
+              (rsound-sample-rate this)))
+    'deserialize-rsound
+    #f
+    (or (current-load-relative-directory) (current-directory)))
   ;#:property prop:equal+hash
   ;(list rsound=? rsound-hash-1 rsound-hash-2)
   #:methods gen:equal+hash
@@ -114,6 +125,13 @@
    (define hash-proc rsound-hash-1)
    (define hash2-proc rsound-hash-2)]
   )
+
+(define deserialize-rsound
+  (make-deserialize-info
+    (lambda (d start stop sr)
+      (rsound (list->s16vector d) start stop sr))
+    (lambda ()
+      #f)))
 
 ;; how many frames long is the sound?
 (define/argcheck (rs-frames [rsound rsound? "rsound"])
